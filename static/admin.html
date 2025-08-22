@@ -1,1 +1,173 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin – Obuna boshqaruvi</title>
+  <style>
+    body{font-family:system-ui;margin:0;padding:20px;background:#f5f5f5}
+    h1{margin:0 0 20px}
+    table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden}
+    th,td{padding:8px 12px;text-align:center}
+    th{background:#42a5f5;color:#fff}
+    .active td:nth-child(3){background:#4caf50;color:#fff;font-weight:bold}
+    .expired td:nth-child(3){background:#f44336;color:#fff;font-weight:bold}
+    .copyBtn{background:#03a9f4;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer}
+    .saveBtn{background:#ff9800;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer}
+    .editBtn{background:#9c27b0;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer}
+    .delBtn{background:#e53935;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer}
+    input[type="number"]{width:60px;text-align:center}
+    textarea{width:100%;min-height:30px;resize:vertical}
+    .flex{display:flex;gap:8px;align-items:center;justify-content:center}
+  </style>
+</head>
+<body>
+  <h1>Obuna boshqaruvi</h1>
+  <table id="list">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Telegram UID</th>
+        <th>Qolgan kun</th>
+        <th>Yangi kun qo‘shish</th>
+        <th>Izoh</th>
+        <th>Amallar</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2 style="margin-top:30px">Yangi obuna qo‘shish</h2>
+  <div class="flex">
+    <label>Telegram UID:</label>
+    <input id="uidIn" placeholder="Telegram ID" type="number" min="1" step="1" />
+    <label>Kun:</label>
+    <input id="daysIn" type="number" min="1" value="30" />
+    <label>Izoh:</label>
+    <input id="noteIn" placeholder="Foydalanuvchi haqida..." />
+    <button onclick="addSubscription()">Obunani yozish</button>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    async function fetchSubscriptions() {
+      const res = await fetch(API + '/api/subscriptions');
+      if (!res.ok) return [];
+      return await res.json();
+    }
+
+    function daysLeft(expiry) {
+      if (!expiry) return 0;
+      const diff = new Date(expiry) - new Date();
+      return Math.max(0, Math.ceil(diff / 86400000));
+    }
+
+    async function renderList() {
+      const tbody = document.querySelector("#list tbody");
+      tbody.innerHTML = "";
+      let counter = 1;
+      const list = await fetchSubscriptions();
+      list.sort((a, b) => daysLeft(a.expiry) - daysLeft(b.expiry)).reverse();
+      list.forEach(({ uid, expiry, note }) => {
+        const left = daysLeft(expiry);
+        const cls = left > 0 ? "active" : "expired";
+        tbody.insertAdjacentHTML("beforeend", `
+          <tr class="${cls}">
+            <td>${counter++}</td>
+            <td>
+              ${uid}
+              <button class="copyBtn" onclick="navigator.clipboard.writeText('${uid}')">Nusxa</button>
+            </td>
+            <td>${left}</td>
+            <td>
+              <input type="number" min="1" value="30" id="addDays_${uid}" style="width:50px;" />
+              <button class="saveBtn" onclick="addDays('${uid}')">Qo‘shish</button>
+            </td>
+            <td>
+              <textarea id="note_${uid}" onblur="saveNote('${uid}')">${note || ''}</textarea>
+            </td>
+            <td>
+              <button class="editBtn" onclick="resetDays('${uid}')">Bekor qilish</button>
+              <button class="delBtn" onclick="deleteSub('${uid}')">O‘chirish</button>
+            </td>
+          </tr>
+        `);
+      });
+    }
+
+    async function addDays(uid) {
+      const add = +document.getElementById('addDays_' + uid).value;
+      if (!add || add < 1) return alert('Kunni to‘g‘ri kiriting!');
+      await fetch(API + '/api/subscription/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, add })
+      });
+      renderList();
+    }
+
+    async function resetDays(uid) {
+      if (!confirm('Obunani bekor qilasizmi?')) return;
+      await fetch(API + '/api/subscription/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid })
+      });
+      renderList();
+    }
+
+    async function deleteSub(uid) {
+      if (!confirm('Obunani butunlay o‘chirasizmi?')) return;
+      await fetch(API + '/api/subscription/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid })
+      });
+      renderList();
+    }
+
+    async function saveNote(uid, textOverride) {
+      const el = document.getElementById('note_' + uid);
+      const text = (typeof textOverride !== 'undefined') ? textOverride : (el ? el.value : '');
+      const res = await fetch(API + '/api/subscription/note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, note: text })
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '');
+        console.error('saveNote failed', res.status, msg);
+        alert('Izoh saqlanmadi: ' + res.status);
+      }
+    }
+
+    async function addSubscription() {
+      const uid = document.getElementById("uidIn").value.trim();
+      const days = +document.getElementById("daysIn").value;
+      const note = document.getElementById("noteIn").value.trim();
+      if (!uid || !days) return alert("Maydonlarni toʻldiring!");
+
+      const payload = { uid, days, note };
+
+      const res = await fetch(API + '/api/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '');
+        console.error('addSubscription failed', res.status, msg);
+        alert('Obunani yozishda xatolik: ' + (msg || res.status));
+      } else {
+        document.getElementById("uidIn").value = "";
+        document.getElementById("daysIn").value = "30";
+        document.getElementById("noteIn").value = "";
+      }
+      renderList();
+    }
+
+    renderList();
+  </script>
+</body>
+</html>
 
