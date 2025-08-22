@@ -48,7 +48,7 @@ def _setup_webhook():
 # @app.before_first_request dekoratori Flask 2.3+ versiyalarida olib tashlangan.
 # Uning o'rniga server ishga tushganda bajariladigan funksiyalarni to'g'ridan-to'g'ri
 # chaqirish tavsiya etiladi. Bu yerda webhookni o'rnatish uchun funksiyani chaqiramiz.
-_setup_webhook()
+#_setup_webhook()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 USE_DB = bool(DATABASE_URL) and (psycopg2 is not None)
