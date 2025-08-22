@@ -1,0 +1,13 @@
+# Bot framework (aiogram v3 is now used)
+aiogram
+
+# Web server
+flask
+flask-cors
+gunicorn
+
+# Database connector (binary version to avoid build issues on Windows)
+psycopg2-binary
+
+# Environment variables
+python-dotenv
