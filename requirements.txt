@@ -5,6 +5,7 @@ aiogram
 flask
 flask-cors
 gunicorn
+gevent
 
 # Environment variables
 python-dotenv
