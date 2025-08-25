@@ -16,4 +16,4 @@ CARD_NAME = os.getenv("CARD_NAME") or "SHOXRUX XOJIBAYEV"
 # Flask / Web configuration
 FLASK_SECRET = os.getenv("FLASK_SECRET", "change-me")
 # This should be your public bot server URL provided by pella.app
-BASE_URL = os.getenv("BASE_URL", "https://bot.abakusuz.uz")
+BASE_URL = os.getenv("BASE_URL")
