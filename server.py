@@ -254,16 +254,24 @@ def auth():
         return f"Xush kelibsiz, {session['username'] or session['tg_id']}!"
     return "Auth xatosi"
 
-
 @app.route('/tg/webhook', methods=['POST'])
 def tg_webhook():
+    print("--- Webhook received! ---")
     try:
         from aiogram import types
         tg = importlib.import_module('bot')
-        update = types.Update.model_validate_json(request.get_data(as_text=True))
+        
+        # Log the raw request data
+        raw_data = request.get_data(as_text=True)
+        print(f"Request data: {raw_data}")
+
+        update = types.Update.model_validate_json(raw_data)
+        print(f"Parsed update: {update.dict()}")
+
         run_async(tg.dp.feed_update(tg.bot, update))
+        print("--- Webhook processed successfully ---")
     except Exception as e:
-        print('Webhook processing error:', e)
+        print(f"!!! Webhook processing error: {e} !!!")
     return 'OK'
 
 @app.route("/")
