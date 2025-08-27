@@ -259,16 +259,19 @@ def tg_webhook():
     print("--- Webhook received! ---")
     try:
         from aiogram import types
+        import json
         tg = importlib.import_module('bot')
-        
-        # Log the raw request data
+
         raw_data = request.get_data(as_text=True)
         print(f"Request data: {raw_data}")
 
-        update = types.Update.model_validate_json(raw_data)
-        print(f"Parsed update: {update.dict()}")
+        # Correct parsing for aiogram v2
+        update_data = json.loads(raw_data)
+        update = types.Update.to_object(update_data)
+        print(f"Parsed update: {update}")
 
-        run_async(tg.dp.feed_update(tg.bot, update))
+        # Correct processing for aiogram v2
+        run_async(tg.dp.process_update(update))
         print("--- Webhook processed successfully ---")
     except Exception as e:
         print(f"!!! Webhook processing error: {e} !!!")
