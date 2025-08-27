@@ -14,9 +14,10 @@ try:
 except Exception:
     psycopg2 = None
 import asyncio
-import importlib
+from aiogram import types
 
 from config import BOT_TOKEN, FLASK_SECRET, BASE_URL
+from bot import bot, dp
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
@@ -28,6 +29,7 @@ app.secret_key = FLASK_SECRET
 CORS(app)
 
 def run_async(coro):
+    loop = asyncio.new_event_loop()
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
@@ -256,31 +258,17 @@ def auth():
     return "Auth xatosi"
 
 @app.route('/tg/webhook', methods=['POST'])
-def tg_webhook():
+async def tg_webhook():
     print("--- Webhook received! ---")
     try:
-        from aiogram import types, Dispatcher
-        import json
-        tg_bot_module = importlib.import_module('bot')
-        bot = tg_bot_module.bot
-        dp = tg_bot_module.dp
-
-        raw_data = request.get_data(as_text=True)
-        print(f"Request data: {raw_data}")
-
-        # aiogram v3 requires the bot object to be passed to feed_update
-        update = types.Update.model_validate(json.loads(raw_data), context={"bot": bot})
-        print(f"Parsed update: {update.dict()}")
-
-        # Use the dispatcher from the bot module to process the update
-        run_async(dp.feed_update(bot, update))
+        update_data = request.get_json(force=True)
+        update = types.Update.model_validate(update_data, context={"bot": bot})
+        await dp.feed_update(update=update)
         print("--- Webhook processed successfully ---")
     except Exception as e:
-        import traceback
         print(f"!!! Webhook processing error: {e} !!!")
-        print("--- TRACEBACK ---")
-        print(traceback.format_exc())
-        print("--- END TRACEBACK ---")
+        import traceback
+        traceback.print_exc()
     return 'OK'
 
 @app.route("/")
