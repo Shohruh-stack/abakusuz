@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from flask import Flask, request, session, redirect, jsonify, send_from_directory
 from flask_cors import CORS
-from a2wsgi import WsgiToAsgi
+from a2wsgi import ASGIMiddleware
 # Optional DB import: allow running without Postgres client
 try:
     import psycopg2
@@ -26,7 +26,7 @@ VERSION = 'srv-json-fallback-3'
 app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = FLASK_SECRET
 CORS(app)
-app = WsgiToAsgi(app)
+app = ASGIMiddleware(app)
 
 def run_async(coro):
     try:
