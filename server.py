@@ -265,16 +265,18 @@ def tg_webhook():
         raw_data = request.get_data(as_text=True)
         print(f"Request data: {raw_data}")
 
-        # Correct parsing for aiogram v2
         update_data = json.loads(raw_data)
         update = types.Update.to_object(update_data)
         print(f"Parsed update: {update}")
 
-        # Correct processing for aiogram v2
         run_async(tg.dp.process_update(update))
         print("--- Webhook processed successfully ---")
     except Exception as e:
+        import traceback
         print(f"!!! Webhook processing error: {e} !!!")
+        print("--- TRACEBACK ---")
+        print(traceback.format_exc())
+        print("--- END TRACEBACK ---")
     return 'OK'
 
 @app.route("/")
