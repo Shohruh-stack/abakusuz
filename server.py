@@ -25,6 +25,7 @@ VERSION = 'srv-json-fallback-3'
 app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = FLASK_SECRET
 CORS(app)
+app = WsgiToAsgi(app)
 
 def run_async(coro):
     try:
