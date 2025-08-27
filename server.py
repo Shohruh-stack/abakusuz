@@ -258,18 +258,21 @@ def auth():
 def tg_webhook():
     print("--- Webhook received! ---")
     try:
-        from aiogram import types
+        from aiogram import types, Dispatcher
         import json
-        tg = importlib.import_module('bot')
+        tg_bot_module = importlib.import_module('bot')
+        bot = tg_bot_module.bot
+        dp = tg_bot_module.dp
 
         raw_data = request.get_data(as_text=True)
         print(f"Request data: {raw_data}")
 
-        update_data = json.loads(raw_data)
-        update = types.Update.to_object(update_data)
-        print(f"Parsed update: {update}")
+        # aiogram v3 requires the bot object to be passed to feed_update
+        update = types.Update.model_validate(json.loads(raw_data), context={"bot": bot})
+        print(f"Parsed update: {update.dict()}")
 
-        run_async(tg.dp.process_update(update))
+        # Use the dispatcher from the bot module to process the update
+        run_async(dp.feed_update(bot, update))
         print("--- Webhook processed successfully ---")
     except Exception as e:
         import traceback
