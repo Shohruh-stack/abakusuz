@@ -1,11 +1,6 @@
-# Bot framework (aiogram v3 is now used)
-aiogram
-
-# Web server
+aiogram>=3.0.0
 flask
-flask-cors
-gunicorn
-gevent
-
-# Environment variables
+psycopg2-binary
 python-dotenv
+gunicorn
+uvicorn
