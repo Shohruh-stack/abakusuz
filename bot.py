@@ -25,13 +25,7 @@ async def start_cmd(message: types.Message):
 
 @dp.callback_query(F.data == "subscribe")
 async def show_subscription_options(callback: types.CallbackQuery):
-    buttons = []
-    for m in [1, 2, 3, 6, 9, 12]:
-        buttons.append(InlineKeyboardButton(text=f"{m} oy", callback_data=f"month_{m}"))
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[buttons[i:i+3] for i in range(0, len(buttons), 3)])
-    await callback.answer()
-    await callback.message.edit_text("Nechi oylik obuna olmoqchisiz?", reply_markup=kb)
+    await callback.answer("Tugma bosildi!", show_alert=True)
 
 @dp.callback_query(F.data.startswith("month_"))
 async def show_price(callback: types.CallbackQuery):
