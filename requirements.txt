@@ -1,5 +1,6 @@
 aiogram>=3.0.0
 flask
+flask-cors
 psycopg2-binary
 python-dotenv
 gunicorn
