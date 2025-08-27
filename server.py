@@ -26,7 +26,6 @@ VERSION = 'srv-json-fallback-3'
 app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = FLASK_SECRET
 CORS(app)
-app = ASGIMiddleware(app)
 
 def run_async(coro):
     try:
@@ -512,7 +511,9 @@ def api_subscription_status():
         return jsonify(status(str(tg_id)))
     except Exception:
         return jsonify({'subscribed': False, 'days_left': 0})
-
+        
+# Wrap the Flask app with ASGIMiddleware for Uvicorn compatibility
+asgi_app = ASGIMiddleware(app)
 
 if __name__ == "__main__":
     if DATABASE_URL and psycopg2 is not None:
