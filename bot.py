@@ -3,10 +3,10 @@ import logging
 import sys
 
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.client.default import DefaultBotProperties
+from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from config import BOT_TOKEN, ADMIN_ID, CARD_NUMBER, CARD_NAME
 
 logging.basicConfig(level=logging.INFO)
