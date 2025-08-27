@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 from flask import Flask, request, session, redirect, jsonify, send_from_directory
 from flask_cors import CORS
+from a2wsgi import WsgiToAsgi
 # Optional DB import: allow running without Postgres client
 try:
     import psycopg2
