@@ -273,29 +273,20 @@ def auth():
         return f"Xush kelibsiz, {session['username'] or session['tg_id']}!"
     return "Auth xatosi"
 
+# YANGI, TO'G'RI KOD
 @app.route('/tg/webhook', methods=['POST'])
 async def tg_webhook():
+    """
+    Handles incoming Telegram updates.
+    Uses aiogram v3 syntax and runs asynchronously to avoid blocking the server.
+    """
     print("--- Webhook received! ---")
     try:
         update_data = request.get_json(force=True)
-                
-        # Create a new event loop for this request
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        # Process update in a task
-        async def process_update():
-            try:
-                await dp.feed_webhook_update(bot, update_data)
-                print("--- Webhook processed successfully ---")
-            except Exception as e:
-                print(f"!!! Update processing error: {e} !!!")
-                import traceback
-                traceback.print_exc()
-        
-        # Run the task
-        await loop.create_task(process_update())
-        
+        # TO'G'RI: Joriy zanjirni olib, fon vazifasini yaratish
+        loop = asyncio.get_running_loop()
+        loop.create_task(dp.feed_webhook_update(bot, update_data))
+        print("--- Webhook task created ---")
     except Exception as e:
         print(f"!!! Webhook handling error: {e} !!!")
         import traceback
