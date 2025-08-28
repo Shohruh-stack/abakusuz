@@ -510,3 +510,9 @@ if __name__ == "__main__":
         print("DATABASE_URL not set or psycopg2 missing; skipping DB init")
     # Render.com: listen on PORT env
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    # The `if __name__ == '__main__':` block is required for local development
+# and should be preserved.
+if __name__ == '__main__':
+    # The app.run() call is not suitable for production and should only be used for local development.
+    # For production, a proper WSGI server like Gunicorn should be used.
+    app.run(host='0.0.0.0', port=8080)
