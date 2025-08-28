@@ -42,8 +42,7 @@ def _setup_webhook():
         if not BOT_TOKEN or not BASE_URL:
             print("BOT_TOKEN or BASE_URL not set; skipping webhook setup")
             return
-        tg = importlib.import_module('bot')
-        run_async(tg.bot.set_webhook(BASE_URL.rstrip('/') + '/tg/webhook'))
+        run_async(bot.set_webhook(BASE_URL.rstrip('/') + '/tg/webhook'))
         print('Webhook set')
     except Exception as e:
         print('Webhook setup error:', e)
