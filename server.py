@@ -278,10 +278,26 @@ async def tg_webhook():
     print("--- Webhook received! ---")
     try:
         update_data = request.get_json(force=True)
-        await dp.feed_webhook_update(bot, update_data)
-        print("--- Webhook processed successfully ---")
+                
+        # Create a new event loop for this request
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Process update in a task
+        async def process_update():
+            try:
+                await dp.feed_webhook_update(bot, update_data)
+                print("--- Webhook processed successfully ---")
+            except Exception as e:
+                print(f"!!! Update processing error: {e} !!!")
+                import traceback
+                traceback.print_exc()
+        
+        # Run the task
+        await loop.create_task(process_update())
+        
     except Exception as e:
-        print(f"!!! Webhook processing error: {e} !!!")
+        print(f"!!! Webhook handling error: {e} !!!")
         import traceback
         traceback.print_exc()
     return 'OK'
