@@ -19,6 +19,23 @@ from aiogram import types
 from config import BOT_TOKEN, FLASK_SECRET, BASE_URL
 from bot import bot, dp
 
+import atexit
+
+def _shutdown_bot():
+    """Gracefully close the bot session on application exit."""
+    print("INFO: Closing bot session on shutdown...")
+    try:
+        # Use asyncio.run() to execute the async close function.
+        # This is generally safe in an atexit handler as the main event
+        # loop is likely stopped or not running in this context.
+        asyncio.run(bot.close())
+        print("INFO: Bot session closed successfully.")
+    except Exception as e:
+        print(f"ERROR: Exception during bot shutdown: {e}")
+
+# Register the function to be called on exit
+atexit.register(_shutdown_bot)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 SUBS_JSON = os.path.join(BASE_DIR, 'subscriptions.json')
