@@ -500,19 +500,14 @@ def api_subscription_status():
     except Exception:
         return jsonify({'subscribed': False, 'days_left': 0})
         
-# Wrap the Flask app with ASGIMiddleware for Uvicorn compatibility
-asgi_app = ASGIMiddleware(app)
+
 
 if __name__ == "__main__":
     if DATABASE_URL and psycopg2 is not None:
         init_db()
     else:
         print("DATABASE_URL not set or psycopg2 missing; skipping DB init")
+    # The app.run() call is for local development or simple deployments.
+    # For production, a proper WSGI server like Gunicorn should be used.
     # Render.com: listen on PORT env
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-    # The `if __name__ == '__main__':` block is required for local development
-# and should be preserved.
-if __name__ == '__main__':
-    # The app.run() call is not suitable for production and should only be used for local development.
-    # For production, a proper WSGI server like Gunicorn should be used.
-    app.run(host='0.0.0.0', port=8080)
