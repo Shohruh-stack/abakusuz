@@ -73,9 +73,18 @@ async def receive_receipt(message: types.Message):
         [InlineKeyboardButton(text="🔄 Yana to‘lov qilish", callback_data="subscribe")]
     ])
     await message.answer("✅ Chekingiz adminga yuborildi.", reply_markup=user_kb)
+def setup_dispatcher(dp: Dispatcher):
+    dp.message.register(start_cmd, CommandStart())
+    dp.callback_query.register(show_subscription_options, F.data == "subscribe")
+    dp.callback_query.register(show_price, F.data.startswith("month_"))
+    dp.callback_query.register(copy_card, F.data == "copy_card")
+    dp.callback_query.register(ask_receipt, F.data == "send_receipt")
+    dp.message.register(receive_receipt, F.photo)
+
 
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
+    setup_dispatcher(dp)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
