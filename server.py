@@ -17,7 +17,10 @@ import asyncio
 from aiogram import types
 
 from config import BOT_TOKEN, FLASK_SECRET, BASE_URL
-from bot import bot, dp
+from bot import bot, dp,  setup_dispatcher
+
+# Register all handlers from bot.py
+setup_dispatcher(dp)
 
 import atexit
 
