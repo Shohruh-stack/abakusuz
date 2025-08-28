@@ -261,9 +261,7 @@ async def tg_webhook():
     print("--- Webhook received! ---")
     try:
         update_data = request.get_json(force=True)
-        update = await bot.get_updates(offset=-1, limit=1)
-        if update:
-            await dp.feed_update(bot, update[-1])
+        await dp.feed_webhook_update(bot, update_data)
         print("--- Webhook processed successfully ---")
     except Exception as e:
         print(f"!!! Webhook processing error: {e} !!!")
