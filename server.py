@@ -283,6 +283,7 @@ async def tg_webhook():
     print("--- Webhook received! ---")
     try:
         update_data = request.get_json(force=True)
+        print(f"--- Received data: {update_data} ---")
         # TO'G'RI: Joriy zanjirni olib, fon vazifasini yaratish
         loop = asyncio.get_running_loop()
         loop.create_task(dp.feed_webhook_update(bot, update_data))
