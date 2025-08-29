@@ -282,15 +282,17 @@ def webhook_handler():
     try:
         update_data = request.get_json(force=True)
 
-        # Define the async task
-        async def process_update():
-            await dp.feed_webhook_update(bot=bot, update=update_data)
+        async def main():
+            # Create a task from the coroutine
+            task = asyncio.create_task(
+                dp.feed_webhook_update(bot=bot, update=update_data)
+            )
+            # Await the task
+            await task
 
-        # Run the async task in a new event loop.
-        # asyncio.run() handles loop creation and cleanup automatically.
-        asyncio.run(process_update())
+        # Run the main async function
+        asyncio.run(main())
 
-        print("--- Webhook processed successfully ---")
         return 'OK', 200
     except Exception as e:
         print(f"!!! Webhook handling error: {e} !!!")
