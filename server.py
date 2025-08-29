@@ -25,10 +25,9 @@ def _shutdown_bot():
     """Gracefully close the bot session on application exit."""
     print("INFO: Closing bot session on shutdown...")
     try:
-        # Use asyncio.run() to execute the async close function.
-        # This is generally safe in an atexit handler as the main event
-        # loop is likely stopped or not running in this context.
-        asyncio.run(bot.close())
+        # In an atexit handler, we can't use an existing loop.
+        # We create a new one just for this cleanup task.
+        asyncio.run(bot.session.close())
         print("INFO: Bot session closed successfully.")
     except Exception as e:
         print(f"ERROR: Exception during bot shutdown: {e}")
@@ -275,24 +274,29 @@ def auth():
 
 # YANGI, TO'G'RI KOD
 @app.route('/tg/webhook', methods=['POST'])
-async def tg_webhook():
+def webhook_handler():
     """
-    Handles incoming Telegram updates.
-    Uses aiogram v3 syntax and runs asynchronously to avoid blocking the server.
+    Handles incoming Telegram updates by running the async processing
+    in a new, managed event loop. This is more stable with sync workers.
     """
-    print("--- Webhook received! ---")
     try:
         update_data = request.get_json(force=True)
-        print(f"--- Received data: {update_data} ---")
-        # TO'G'RI: Joriy zanjirni olib, fon vazifasini yaratish
-        loop = asyncio.get_running_loop()
-        loop.create_task(dp.feed_webhook_update(bot, update_data))
-        print("--- Webhook task created ---")
+
+        # Define the async task
+        async def process_update():
+            await dp.feed_webhook_update(bot=bot, update=update_data)
+
+        # Run the async task in a new event loop.
+        # asyncio.run() handles loop creation and cleanup automatically.
+        asyncio.run(process_update())
+
+        print("--- Webhook processed successfully ---")
+        return 'OK', 200
     except Exception as e:
         print(f"!!! Webhook handling error: {e} !!!")
         import traceback
         traceback.print_exc()
-    return 'OK'
+        return 'Internal Server Error', 500
 
 @app.route("/")
 def index():
