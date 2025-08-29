@@ -55,7 +55,7 @@ async def copy_card(callback: types.CallbackQuery):
         [InlineKeyboardButton(text="📤 To‘lov chekini yuborish", callback_data="send_receipt")]
     ])
     await callback.message.answer(f"💳 Karta raqami: `{CARD_NUMBER}`\n\nEndi to'lov chekini yuboring.", parse_mode=ParseMode.MARKDOWN, reply_markup=kb)
-    await callback.answer("Karta raqamini xabardan oson nusxalashingiz mumkin", show_alert=True)
+    await callback.answer("Karta raqamini xabardagi raqamlar ustiga bosish orqali oson nusxalashingiz mumkin", show_alert=True)
 
 @dp.callback_query(F.data == "send_receipt")
 async def ask_receipt(callback: types.CallbackQuery):
