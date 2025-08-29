@@ -1,5 +1,5 @@
 # Bot framework (aiogram v3 is now used)
-aiogram==3.0.0b7
+aiogram==3.2.0
 
 # Web server
 Flask[async]==2.2.5
