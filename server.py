@@ -24,6 +24,15 @@ from config import BOT_TOKEN, BASE_URL, ADMIN_ID, FLASK_SECRET
 
 import atexit
 
+loop = asyncio.new_event_loop()
+
+def run_loop(loop):
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
+
+thread = Thread(target=run_loop, args=(loop,), daemon=True)
+thread.start()
+
 def _shutdown_bot():
     """Gracefully close the bot session on application exit."""
     print("INFO: Closing bot session on shutdown...")
