@@ -1,9 +1,11 @@
 import os
-import hashlib
-import hmac
 import json
+import hmac
+import hashlib
 from datetime import datetime, timedelta
+from threading import Thread 
 
+import requests
 from flask import Flask, request, session, redirect, jsonify, send_from_directory
 from flask_cors import CORS
 
@@ -16,8 +18,9 @@ except Exception:
 import asyncio
 from aiogram import types
 
-from config import BOT_TOKEN, FLASK_SECRET, BASE_URL
+import traceback 
 from bot import bot, dp
+from config import BOT_TOKEN, BASE_URL, ADMIN_ID, FLASK_SECRET
 
 import atexit
 
@@ -44,6 +47,8 @@ app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = FLASK_SECRET
 CORS(app)
 
+
+
 def run_async(coro):
     loop = asyncio.new_event_loop()
     try:
@@ -58,7 +63,9 @@ def _setup_webhook():
         if not BOT_TOKEN or not BASE_URL:
             print("BOT_TOKEN or BASE_URL not set; skipping webhook setup")
             return
-        run_async(bot.set_webhook(BASE_URL.rstrip('/') + '/tg/webhook'))
+        # At startup, we can run a one-off async task like this.
+        # This is simpler than managing a background loop for a single call.
+        asyncio.run(bot.set_webhook(BASE_URL.rstrip('/') + '/tg/webhook'))
         print('Webhook set')
     except Exception as e:
         print('Webhook setup error:', e)
