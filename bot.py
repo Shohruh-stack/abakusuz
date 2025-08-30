@@ -8,6 +8,11 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+def setup_dispatcher(dispatcher):
+    """Setup all handlers for the bot"""
+    dispatcher.message.register(start_cmd, CommandStart())
+    dispatcher.message.register(handle_subscription, lambda message: message.text == "Obuna bo'lish")
+
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
