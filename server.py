@@ -3,10 +3,6 @@ import hashlib
 import hmac
 import json
 from datetime import datetime, timedelta
-import asyncio
-import atexit
-import traceback
-from threading import Thread
 
 from flask import Flask, request, session, redirect, jsonify, send_from_directory
 from flask_cors import CORS
@@ -17,82 +13,62 @@ try:
     import psycopg2.extras
 except Exception:
     psycopg2 = None
-
+import asyncio
 from aiogram import types
+
 from config import BOT_TOKEN, FLASK_SECRET, BASE_URL
-from bot import bot, dp
+from bot import bot, dp, setup_dispatcher
 
-# --- Background asyncio loop for aiogram ---
-# This setup creates a persistent asyncio event loop in a background thread.
-# This is the recommended way to run aiogram with a synchronous web framework like Flask.
-# It avoids the "RuntimeError: This event loop is already running"
-# and ensures that async operations are handled correctly and efficiently.
 
-loop = asyncio.new_event_loop()
-
-def run_async_loop():
-    """Runs the asyncio event loop."""
-    asyncio.set_event_loop(loop)
-    loop.run_forever()
-
-# Start the asyncio event loop in a daemon thread
-thread = Thread(target=run_async_loop, daemon=True)
-thread.start()
-
+import atexit
 
 def _shutdown_bot():
-    """Gracefully close the bot session and stop the loop on application exit."""
-    print("INFO: Closing bot session and stopping event loop on shutdown...")
-    if loop.is_running():
-        # Schedule the session close coroutine to run in the existing loop
-        future = asyncio.run_coroutine_threadsafe(bot.session.close(), loop)
-        try:
-            future.result(timeout=5)  # Wait for the coroutine to finish
-        except Exception as e:
-            print(f"ERROR: Exception during bot session close: {e}")
-        
-        # Stop the loop
-        loop.call_soon_threadsafe(loop.stop)
-    print("INFO: Bot session closed and loop stopped.")
+    """Gracefully close the bot session on application exit."""
+    print("INFO: Closing bot session on shutdown...")
+    try:
+        # Use asyncio.run() to execute the async close function.
+        # This is generally safe in an atexit handler as the main event
+        # loop is likely stopped or not running in this context.
+        asyncio.run(bot.close())
+        print("INFO: Bot session closed successfully.")
+    except Exception as e:
+        print(f"ERROR: Exception during bot shutdown: {e}")
 
 # Register the function to be called on exit
 atexit.register(_shutdown_bot)
 
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 SUBS_JSON = os.path.join(BASE_DIR, 'subscriptions.json')
-VERSION = 'srv-json-fallback-4' # Version updated
+VERSION = 'srv-json-fallback-3'
 
 app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = FLASK_SECRET
 CORS(app)
 
+def run_async(coro):
+    loop = asyncio.new_event_loop()
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(coro)
 
 def _setup_webhook():
-    """Set the bot webhook using the background event loop."""
-    if not BOT_TOKEN or not BASE_URL:
-        print("BOT_TOKEN or BASE_URL not set; skipping webhook setup")
-        return
+    try:
+        if not BOT_TOKEN or not BASE_URL:
+            print("BOT_TOKEN or BASE_URL not set; skipping webhook setup")
+            return
+        run_async(bot.set_webhook(BASE_URL.rstrip('/') + '/tg/webhook'))
+        print('Webhook set')
+    except Exception as e:
+        print('Webhook setup error:', e)
 
-    webhook_url = BASE_URL.rstrip('/') + '/tg/webhook'
-
-    async def set_hook():
-        """Coroutine to set the webhook."""
-        try:
-            # Drop pending updates to avoid processing old messages on restart
-            await bot.delete_webhook(drop_pending_updates=True)
-            await bot.set_webhook(webhook_url)
-            print(f"INFO: Webhook set to {webhook_url}")
-        except Exception as e:
-            print(f"ERROR: Webhook setup error: {e}")
-
-    # Schedule the coroutine to run in the background loop
-    asyncio.run_coroutine_threadsafe(set_hook(), loop)
-
-# Set up the webhook when the application starts
+# @app.before_first_request dekoratori Flask 2.3+ versiyalarida olib tashlangan.
+# Uning o'rniga server ishga tushganda bajariladigan funksiyalarni to'g'ridan-to'g'ri
+# chaqirish tavsiya etiladi. Bu yerda webhookni o'rnatish uchun funksiyani chaqiramiz.
 _setup_webhook()
-
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 USE_DB = bool(DATABASE_URL) and (psycopg2 is not None)
@@ -249,17 +225,22 @@ def list_subs():
 def set_days(uid: str, days: int, note: str = None):
     return db_set_days(uid, days, note) if USE_DB else file_set_days(uid, days, note)
 
+
 def add_days(uid: str, add: int):
     return db_add_days(uid, add) if USE_DB else file_add_days(uid, add)
+
 
 def reset(uid: str):
     return db_reset(uid) if USE_DB else file_reset(uid)
 
+
 def set_note(uid: str, note: str):
     return db_set_note(uid, note) if USE_DB else file_set_note(uid, note)
 
+
 def delete(uid: str):
     return db_delete(uid) if USE_DB else file_delete(uid)
+
 
 def status(uid: str):
     return db_status(uid) if USE_DB else file_status(uid)
@@ -293,23 +274,26 @@ def auth():
         return f"Xush kelibsiz, {session['username'] or session['tg_id']}!"
     return "Auth xatosi"
 
-
+# YANGI, TO'G'RI KOD
 @app.route('/tg/webhook', methods=['POST'])
-def webhook_handler():
+async def tg_webhook():
     """
-    Handles incoming Telegram updates by passing them to the background asyncio loop.
+    Handles incoming Telegram updates.
+    Uses aiogram v3 syntax and runs asynchronously to avoid blocking the server.
     """
+    print("--- Webhook received! ---")
     try:
         update_data = request.get_json(force=True)
-        # Create a Telegram update object
-        update = types.Update(**update_data)
-        # Schedule the processing of the update in the background loop
-        asyncio.run_coroutine_threadsafe(dp.feed_update(bot=bot, update=update), loop)
-        return 'OK', 200
+        print(f"--- Received data: {update_data} ---")
+        # TO'G'RI: Joriy zanjirni olib, fon vazifasini yaratish
+        loop = asyncio.get_running_loop()
+        loop.create_task(dp.feed_webhook_update(bot, update_data))
+        print("--- Webhook task created ---")
     except Exception as e:
-        print(f"ERROR: Webhook handling error: {e}")
+        print(f"!!! Webhook handling error: {e} !!!")
+        import traceback
         traceback.print_exc()
-        return 'Internal Server Error', 500
+    return 'OK'
 
 @app.route("/")
 def index():
