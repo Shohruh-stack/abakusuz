@@ -272,27 +272,20 @@ def auth():
         return f"Xush kelibsiz, {session['username'] or session['tg_id']}!"
     return "Auth xatosi"
 
-# YANGI, TO'G'RI KOD
 @app.route('/tg/webhook', methods=['POST'])
 def webhook_handler():
     """
     Handles incoming Telegram updates by running the async processing
-    in a new, managed event loop. This is more stable with sync workers.
+    in a background event loop. This is more stable with sync workers.
     """
     try:
         update_data = request.get_json(force=True)
 
-        async def main():
-            # Create a task from the coroutine
-            task = asyncio.create_task(
-                dp.feed_webhook_update(bot=bot, update=update_data)
-            )
-            # Await the task
-            await task
+        async def process_update():
+            await dp.feed_webhook_update(bot=bot, update=update_data)
 
-        # Run the main async function
-        asyncio.run(main())
-
+        # Submit the coroutine to the event loop in the other thread
+        asyncio.run_coroutine_threadsafe(process_update(), loop)
         return 'OK', 200
     except Exception as e:
         print(f"!!! Webhook handling error: {e} !!!")
