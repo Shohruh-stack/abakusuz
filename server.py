@@ -14,8 +14,10 @@ except Exception:
     psycopg2 = None
 import asyncio
 import importlib
+from aiogram import Bot, types, Dispatcher
 
 from config import BOT_TOKEN, FLASK_SECRET, BASE_URL
+from bot import bot, dp  # bot.py dan bot va dispatcher ni import qilamiz
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
@@ -258,10 +260,10 @@ def auth():
 
 
 @app.route('/tg/webhook', methods=['POST'])
-def tg_webhook():
+async def tg_webhook():
     try:
         update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
-        asyncio.run(dp.feed_update(bot=bot, update=update))
+        await dp.feed_update(bot=bot, update=update)
         return 'OK'
     except Exception as e:
         print('Webhook qayta ishlashda xatolik:', e)
