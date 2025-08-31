@@ -27,6 +27,37 @@ app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = FLASK_SECRET
 CORS(app)
 
+# Webhook handler
+@app.route('/tg/webhook', methods=['POST'])
+def tg_webhook():
+    """Webhook handler - sync function"""
+    try:
+        update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
+        run_async(dp.feed_update(bot=bot, update=update))
+        return 'OK'
+    except Exception as e:
+        print('Webhook qayta ishlashda xatolik:', e)
+        return 'Error', 500
+
+async def setup():
+    """Bot va webhook ni sozlash"""
+    try:
+        webhook_url = f"{BASE_URL}/tg/webhook"
+        await bot.set_webhook(url=webhook_url)
+        print(f"Webhook muvaffaqiyatli o'rnatildi: {webhook_url}")
+    except Exception as e:
+        print('Webhook o\'rnatishda xatolik:', e)
+    finally:
+        # Bot sessionini yopish
+        await bot.session.close()
+
+def init_webhook():
+    """Webhook ni sinxron ravishda o'rnatish"""
+    run_async(setup())
+
+# Server ishga tushganda webhook ni o'rnatish
+init_webhook()
+
 PORT = os.environ.get('PORT', 5000)
 
 def run_async(coro):
@@ -36,31 +67,6 @@ def run_async(coro):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
     return loop.run_until_complete(coro)
-
-def _setup_webhook():
-    """Telegram bot uchun webhook sozlamalari"""
-    try:
-        webhook_url = f"{BASE_URL}/tg/webhook"
-        run_async(bot.set_webhook(url=webhook_url))
-        print(f"Webhook muvaffaqiyatli o'rnatildi: {webhook_url}")
-    except Exception as e:
-        print('Webhook o\'rnatishda xatolik:', e)
-
-@app.route('/tg/webhook', methods=['POST'])
-def tg_webhook():
-    """Webhook handler - async emas, sync funksiya sifatida"""
-    try:
-        update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
-        run_async(dp.feed_update(bot=bot, update=update))
-        return 'OK'
-    except Exception as e:
-        print('Webhook qayta ishlashda xatolik:', e)
-        return 'Error', 500
-
-# @app.before_first_request dekoratori Flask 2.3+ versiyalarida olib tashlangan.
-# Uning o'rniga server ishga tushganda bajariladigan funksiyalarni to'g'ridan-to'g'ri
-# chaqirish tavsiya etiladi. Bu yerda webhookni o'rnatish uchun funksiyani chaqiramiz.
-_setup_webhook()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 USE_DB = bool(DATABASE_URL) and (psycopg2 is not None)
@@ -266,16 +272,6 @@ def auth():
         return f"Xush kelibsiz, {session['username'] or session['tg_id']}!"
     return "Auth xatosi"
 
-
-@app.route('/tg/webhook', methods=['POST'])
-async def tg_webhook():
-    try:
-        update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
-        await dp.feed_update(bot=bot, update=update)
-        return 'OK'
-    except Exception as e:
-        print('Webhook qayta ishlashda xatolik:', e)
-        return 'Error', 500
 
 @app.route("/")
 def index():
@@ -508,9 +504,5 @@ def api_subscription_status():
 
 
 if __name__ == "__main__":
-    # Webhook ni o'rnatish
-    _setup_webhook()
-    
-    # Serverni ishga tushirish
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
