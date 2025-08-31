@@ -40,16 +40,10 @@ def is_subscribed(user_id):
         return datetime.now() < expiry
     return False
 
-# Handlerlarni ro'yxatdan o'tkazish funksiyasi
-def setup_dispatcher(dispatcher):
-    """Bot uchun barcha handlerlarni ro'yxatdan o'tkazish"""
-    dispatcher.message.register(start_cmd, CommandStart())
-    dispatcher.message.register(handle_subscription, lambda message: message.text == "Obuna bo'lish")
-    dispatcher.message.register(check_subscription, lambda message: message.text == "Obunani tekshirish")
-
 # /start buyrug'i uchun handler
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
+    logging.info(f"Received /start command from user {message.from_user.id}")
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     keyboard.add(types.KeyboardButton("Obuna bo'lish"))
     keyboard.add(types.KeyboardButton("Obunani tekshirish"))
@@ -58,6 +52,7 @@ async def start_cmd(message: types.Message):
 # "Obuna bo'lish" tugmasi uchun handler
 @dp.message(lambda message: message.text == "Obuna bo'lish")
 async def handle_subscription(message: types.Message):
+    logging.info(f"Received 'Obuna bo'lish' from user {message.from_user.id}")
     user_id = message.from_user.id
     username = message.from_user.username or "Noma'lum"
     
@@ -91,6 +86,7 @@ Username: @{username}
 # "Obunani tekshirish" tugmasi uchun handler
 @dp.message(lambda message: message.text == "Obunani tekshirish")
 async def check_subscription(message: types.Message):
+    logging.info(f"Received 'Obunani tekshirish' from user {message.from_user.id}")
     user_id = message.from_user.id
     
     if is_subscribed(user_id):
@@ -105,9 +101,8 @@ async def check_subscription(message: types.Message):
         keyboard.add(types.KeyboardButton("Obuna bo'lish"))
         await message.answer("Sizning obunangiz faol emas. Obuna bo'lish uchun quyidagi tugmani bosing:", reply_markup=keyboard)
 
-# Orqaga moslik uchun
-async def start_cmd_old(message: types.Message):
-    await start_cmd(message)
-
-async def handle_subscription_old(message: types.Message):
-    await handle_subscription(message)
+# Oddiy matnli xabarlar uchun handler
+@dp.message()
+async def echo(message: types.Message):
+    logging.info(f"Received message from user {message.from_user.id}: {message.text}")
+    await message.answer("Xabar qabul qilindi. Yordam uchun /start buyrug'ini bosing.")
