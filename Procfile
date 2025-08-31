@@ -1,2 +1,1 @@
-web: python server.py
-worker: python bot.py
+web: gunicorn server:app --worker-class aiohttp.worker.GunicornWebWorker
