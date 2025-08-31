@@ -17,16 +17,20 @@ from aiogram import types
 
 from config import BOT_TOKEN, BASE_URL, ADMIN_ID
 # Import the bot and dispatcher from bot.py
-from bot import bot, dp, load_subscriptions, save_subscriptions, is_subscribed
+from bot import bot, dp, setup_dispatcher, load_subscriptions, save_subscriptions, is_subscribed
 
-# Loggingni sozlash
+# Logging sozlamalari
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # --- Background asyncio loop for aiogram ---
 loop = asyncio.new_event_loop()
 
 def run_async_loop():
     asyncio.set_event_loop(loop)
+    logger.info("Setting up dispatcher")
+    setup_dispatcher(dp)  # Initialize all handlers
+    logger.info("Starting asyncio loop")
     loop.run_forever()
 
 thread = Thread(target=run_async_loop, daemon=True)
@@ -39,18 +43,21 @@ CORS(app)  # Enable CORS for all routes
 
 def _setup_webhook():
     if not BOT_TOKEN or not BASE_URL:
-        print("BOT_TOKEN or BASE_URL not set; skipping webhook setup")
+        logger.error("BOT_TOKEN or BASE_URL not set; skipping webhook setup")
         return
 
     webhook_url = BASE_URL.rstrip('/') + '/tg/webhook'
+    logger.info(f"Setting webhook to {webhook_url}")
 
     async def set_hook():
         try:
             await bot.delete_webhook(drop_pending_updates=True)
             await bot.set_webhook(webhook_url)
-            print(f"INFO: Webhook set to {webhook_url}")
+            logger.info(f"INFO: Webhook set to {webhook_url}")
         except Exception as e:
-            print(f"ERROR: Webhook setup error: {e}")
+            logger.error(f"ERROR: Webhook setup error: {e}")
+
+    asyncio.run_coroutine_threadsafe(set_hook(), loop)
 
 @app.route('/tg/webhook', methods=['POST'])
 def webhook_handler():
@@ -58,13 +65,15 @@ def webhook_handler():
         update_data = request.get_json(force=True)
         update = types.Update(**update_data)
         
+        logger.info(f"Received update: {update.update_id}")
+        
         async def process():
             await dp.feed_update(bot=bot, update=update)
 
         asyncio.run_coroutine_threadsafe(process(), loop)
         return 'OK', 200
     except Exception as e:
-        print(f"ERROR: Webhook handling error: {e}")
+        logger.error(f"ERROR: Webhook handling error: {e}")
         traceback.print_exc()
         return 'Internal Server Error', 500
 
@@ -214,7 +223,7 @@ def update_note():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))  # Render.com uchun port
-    print(f"Starting server on port {port}")
+    logger.info(f"Starting server on port {port}")
     _setup_webhook()
     app.run(host="0.0.0.0", port=port)
 else: # When run by Gunicorn
