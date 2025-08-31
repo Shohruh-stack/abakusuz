@@ -7,7 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from config import BOT_TOKEN, ADMIN_ID, CARD_NUMBER, CARD_NAME
+from config import BOT_TOKEN, ADMIN_ID, CARD_NUMBER, CARD_NAME, BASE_URL
 
 logging.basicConfig(level=logging.INFO)
 
@@ -77,9 +77,19 @@ async def receive_receipt(message: types.Message):
     await message.answer("✅ Chekingiz adminga yuborildi.", reply_markup=user_kb)
 
 async def main():
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
+    try:
+        # Webhook ni o'rnatish
+        webhook_url = f"{BASE_URL}/tg/webhook"
+        await bot.delete_webhook()  # Avval eski webhook ni o'chiramiz
+        await bot.set_webhook(url=webhook_url)
+        print(f"Webhook muvaffaqiyatli o'rnatildi: {webhook_url}")
+    except Exception as e:
+        print(f"Webhook o'rnatishda xatolik: {e}")
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        stream=sys.stdout
+    )
     asyncio.run(main())
