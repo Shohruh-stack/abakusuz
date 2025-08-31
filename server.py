@@ -38,16 +38,15 @@ def run_async(coro):
         asyncio.set_event_loop(loop)
     return loop.run_until_complete(coro)
 
-def _setup_webhook():
+@app.route('/tg/webhook', methods=['POST'])
+def tg_webhook():
     try:
-        if not BOT_TOKEN or not BASE_URL:
-            print("BOT_TOKEN yoki BASE_URL sozlanmagan")
-            return
-        tg = importlib.import_module('bot')
-        run_async(tg.bot.set_webhook(BASE_URL.rstrip('/') + '/tg/webhook'))
-        print('Webhook muvaffaqiyatli o\'rnatildi')
+        update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
+        run_async(dp.feed_update(bot=bot, update=update))
+        return 'OK'
     except Exception as e:
-        print('Webhook xatosi:', e)
+        print('Webhook qayta ishlashda xatolik:', e)
+        return 'Error', 500
 
 # @app.before_first_request dekoratori Flask 2.3+ versiyalarida olib tashlangan.
 # Uning o'rniga server ishga tushganda bajariladigan funksiyalarni to'g'ridan-to'g'ri
