@@ -2,6 +2,7 @@
 import os
 import asyncio
 import traceback
+import gc
 from threading import Thread
 
 from flask import Flask, request, jsonify
@@ -16,8 +17,13 @@ loop = asyncio.new_event_loop()
 
 def run_async_loop():
     asyncio.set_event_loop(loop)
-    setup_dispatcher(dp)  # Initialize all handlers
-    loop.run_forever()
+    setup_dispatcher(dp)
+    gc.enable()  # GC yoqildi
+    gc.set_threshold(700, 10, 10)  # GC parametrlari
+    try:
+        loop.run_forever()
+    finally:
+        loop.close() 
 
 thread = Thread(target=run_async_loop, daemon=True)
 thread.start()
@@ -45,12 +51,18 @@ def _setup_webhook():
 
 @app.route('/tg/webhook', methods=['POST'])
 def webhook_handler():
+    if request.content_length > 1024 * 10:  # 10KB cheklovi
+        return 'Payload too large', 413
+    
     try:
         update_data = request.get_json(force=True)
         update = types.Update(**update_data)
         
         async def process():
-            await dp.feed_update(bot=bot, update=update)
+            try:
+                await dp.feed_update(bot=bot, update=update)
+            finally:
+                gc.collect()  # Xotirani tozalash
 
         asyncio.run_coroutine_threadsafe(process(), loop)
         return 'OK', 200
