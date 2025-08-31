@@ -1,53 +1,85 @@
+import asyncio
 import logging
-import json
-import os
-from datetime import datetime, timedelta
-from aiogram import Bot, Dispatcher, types
+import sys
+
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from config import BOT_TOKEN, ADMIN_ID, CARD_NUMBER, CARD_NAME
 
-# Loggingni sozlash
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-# Test handler - bu har doim ishlashi kerak
-async def start_cmd(message: Message):
-    logger.info(f"Received /start command from user {message.from_user.id}")
-    await message.answer("Salom! Bot ishlayapti.")
+bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
+dp = Dispatcher()
 
-# Oddiy xabarlar uchun handler
-async def echo_handler(message: Message):
-    logger.info(f"Received message from user {message.from_user.id}: {message.text}")
-    await message.answer(f"Siz yubordingiz: {message.text}")
 
-# Qolgan barcha funksiyalar
-def load_subscriptions():
-    """Obunachilarni JSON fayldan yuklash"""
-    try:
-        with open('subscriptions.json', 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
+@dp.message(CommandStart())
+async def start_cmd(message: types.Message):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📅 Obuna bo‘lish", callback_data="subscribe")]
+    ])
+    await message.answer("Assalomu alaykum!\nObuna bo‘lish uchun tugmani bosing 👇", reply_markup=kb)
 
-def save_subscriptions(subscriptions):
-    """Obunachilarni JSON faylga saqlash"""
-    with open('subscriptions.json', 'w') as f:
-        json.dump(subscriptions, f, indent=2)
 
-def is_subscribed(user_id):
-    """Foydalanuvchi obunachimi yoki yo'qligini tekshirish"""
-    subscriptions = load_subscriptions()
-    user_id_str = str(user_id)
-    
-    if user_id_str in subscriptions:
-        expiry_str = subscriptions[user_id_str]['expiry']
-        expiry = datetime.fromisoformat(expiry_str)
-        return datetime.now() < expiry
-    return False
+@dp.callback_query(F.data == "subscribe")
+async def show_subscription_options(callback: types.CallbackQuery):
+    buttons = []
+    for m in [1, 2, 3, 6, 9, 12]:
+        buttons.append(InlineKeyboardButton(text=f"{m} oy", callback_data=f"month_{m}"))
 
-# Handlerlarni ro'yxatdan o'tkazish funksiyasi (server.py uchun)
-def setup_dispatcher(dispatcher):
-    """Bot uchun barcha handlerlarni ro'yxatdan o'tkazish"""
-    logger.info("Setting up dispatcher with handlers")
-    dispatcher.message.register(start_cmd, CommandStart())
-    dispatcher.message.register(echo_handler)
+    kb = InlineKeyboardMarkup(inline_keyboard=[buttons[i:i+3] for i in range(0, len(buttons), 3)])
+    await callback.answer()
+    await callback.message.edit_text("Nechi oylik obuna olmoqchisiz?", reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("month_"))
+async def show_price(callback: types.CallbackQuery):
+    months = int(callback.data.split("_")[1])
+    price = months * 36000
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅ Orqaga", callback_data="subscribe")],
+        [InlineKeyboardButton(text="📋 Karta raqamini nusxalash", callback_data="copy_card")],
+        [InlineKeyboardButton(text="📤 To‘lov chekini yuborish", callback_data="send_receipt")]
+    ])
+    await callback.answer()
+    await callback.message.edit_text(
+        f"📅 {months} oylik obuna narxi: {price:,} so‘m\n\n"
+        f"Karta: `{CARD_NUMBER}`\nEgasi: {CARD_NAME}",
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=kb
+    )
+
+@dp.callback_query(F.data == "copy_card")
+async def copy_card(callback: types.CallbackQuery):
+    # Karta raqami va "To'lov chekini yuborish" tugmasi birga chiqadi
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📤 To‘lov chekini yuborish", callback_data="send_receipt")]
+    ])
+    await callback.message.answer(f"💳 Karta raqami: `{CARD_NUMBER}`\n\nEndi to'lov chekini yuboring.", parse_mode=ParseMode.MARKDOWN, reply_markup=kb)
+    await callback.answer("Karta raqamini xabardan oson nusxalashingiz mumkin", show_alert=True)
+
+@dp.callback_query(F.data == "send_receipt")
+async def ask_receipt(callback: types.CallbackQuery):
+    await callback.answer()
+    await callback.message.answer("📤 To‘lov chekingizni shu yerga rasm sifatida yuboring")
+
+@dp.message(F.photo)
+async def receive_receipt(message: types.Message):
+    caption = f"💳 Yangi to‘lov!\n👤 {message.from_user.full_name}"
+    await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption)
+    # Foydalanuvchi ID raqamini admin uchun alohida xabar sifatida yuborish
+    await bot.send_message(ADMIN_ID, f"🆔 Foydalanuvchi ID: `{message.from_user.id}`", parse_mode=ParseMode.MARKDOWN)
+    # Foydalanuvchiga "Yana to'lov qilish" tugmasi
+    user_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Yana to‘lov qilish", callback_data="subscribe")]
+    ])
+    await message.answer("✅ Chekingiz adminga yuborildi.", reply_markup=user_kb)
+
+async def main():
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    asyncio.run(main())
