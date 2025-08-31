@@ -2,7 +2,7 @@ import os
 
 # Telegram Bot configuration (do NOT hardcode secrets in production)
 # Uses environment variables if set; otherwise falls back to the values you provided.
-BOT_TOKEN = os.getenv("8167279999:AAFfY47MaQlqayKbRyecXIXnjoWyfMjpyOk")  # Must be set in environment variables for security
+BOT_TOKEN = os.getenv("BOT_TOKEN") or "6789012345:AAFFY47MaQlqayKbRyecXIXnjoWyfMjpyOk"  # Must be set in environment variables for security (Updated token)
 
 _admin_id = os.getenv("ADMIN_ID") or "475202258"
 try:
