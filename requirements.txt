@@ -1,19 +1,9 @@
-# Bot framework
-aiogram==3.1.1
-
-# Web server
+aiogram>=3.0.0
 Flask==2.3.2
 flask-cors==4.0.0
 gunicorn==21.2.0
-
-# Database connector (binary version to avoid build issues on Windows)
 psycopg2-binary==2.9.9
-
-# Environment variables
 python-dotenv==1.0.0
-
-# HTTP client
 requests==2.31.0
-
-# Required for IDNA encoding
 idna==3.4
+aiohttp>=3.8.0
