@@ -3,7 +3,6 @@ import logging
 import sys
 
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -11,7 +10,8 @@ from config import BOT_TOKEN, ADMIN_ID, CARD_NUMBER, CARD_NAME, BASE_URL
 
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
+# DefaultBotProperties o'rniga to'g'ridan-to'g'ri parse_mode beramiz
+bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.MARKDOWN)
 dp = Dispatcher()
 
 
