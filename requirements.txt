@@ -1,5 +1,5 @@
-aiogram>=3.0.0
-Flask==2.3.2
+aiogram==3.1.1
+Flask[async]==2.3.2
 flask-cors==4.0.0
 gunicorn==21.2.0
 psycopg2-binary==2.9.9
