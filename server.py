@@ -13,7 +13,6 @@ try:
 except Exception:
     psycopg2 = None
 import asyncio
-import importlib
 from aiogram import Bot, types, Dispatcher
 
 from config import BOT_TOKEN, FLASK_SECRET, BASE_URL
@@ -38,8 +37,18 @@ def run_async(coro):
         asyncio.set_event_loop(loop)
     return loop.run_until_complete(coro)
 
+def _setup_webhook():
+    """Telegram bot uchun webhook sozlamalari"""
+    try:
+        webhook_url = f"{BASE_URL}/tg/webhook"
+        run_async(bot.set_webhook(url=webhook_url))
+        print(f"Webhook muvaffaqiyatli o'rnatildi: {webhook_url}")
+    except Exception as e:
+        print('Webhook o\'rnatishda xatolik:', e)
+
 @app.route('/tg/webhook', methods=['POST'])
 def tg_webhook():
+    """Webhook handler - async emas, sync funksiya sifatida"""
     try:
         update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
         run_async(dp.feed_update(bot=bot, update=update))
@@ -499,13 +508,9 @@ def api_subscription_status():
 
 
 if __name__ == "__main__":
-    if DATABASE_URL and psycopg2 is not None:
-        init_db()
-    else:
-        print("DATABASE_URL not set or psycopg2 missing; skipping DB init")
-
     # Webhook ni o'rnatish
     _setup_webhook()
     
-    # Render.com: listen on PORT env
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    # Serverni ishga tushirish
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
