@@ -2,13 +2,15 @@
 import os
 import asyncio
 import traceback
-import gc
+import json
+from datetime import datetime, timedelta
 from threading import Thread
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from aiogram import types
 
-from config import BOT_TOKEN, BASE_URL
+from config import BOT_TOKEN, BASE_URL, ADMIN_ID
 # Import the bot and dispatcher from bot.py
 from bot import bot, dp, setup_dispatcher
 
@@ -17,13 +19,8 @@ loop = asyncio.new_event_loop()
 
 def run_async_loop():
     asyncio.set_event_loop(loop)
-    setup_dispatcher(dp)
-    gc.enable()  # GC yoqildi
-    gc.set_threshold(700, 10, 10)  # GC parametrlari
-    try:
-        loop.run_forever()
-    finally:
-        loop.close() 
+    setup_dispatcher(dp)  # Initialize all handlers
+    loop.run_forever()
 
 thread = Thread(target=run_async_loop, daemon=True)
 thread.start()
@@ -31,6 +28,7 @@ thread.start()
 VERSION = 'srv-refactor-2' # Version updated
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 def _setup_webhook():
     if not BOT_TOKEN or not BASE_URL:
@@ -51,18 +49,12 @@ def _setup_webhook():
 
 @app.route('/tg/webhook', methods=['POST'])
 def webhook_handler():
-    if request.content_length > 1024 * 10:  # 10KB cheklovi
-        return 'Payload too large', 413
-    
     try:
         update_data = request.get_json(force=True)
         update = types.Update(**update_data)
         
         async def process():
-            try:
-                await dp.feed_update(bot=bot, update=update)
-            finally:
-                gc.collect()  # Xotirani tozalash
+            await dp.feed_update(bot=bot, update=update)
 
         asyncio.run_coroutine_threadsafe(process(), loop)
         return 'OK', 200
@@ -73,11 +65,139 @@ def webhook_handler():
 
 @app.route('/')
 def index():
-    return "Bot is running!"
+    return send_from_directory('static', 'admin.html')
+
+@app.route('/<path:path>')
+def static_files(path):
+    return send_from_directory('static', path)
 
 @app.route('/_version')
 def _version():
     return jsonify({'version': VERSION})
+
+
+# API endpoints for subscription management
+@app.route('/api/subscriptions')
+def get_subscriptions():
+    try:
+        subscriptions = load_subscriptions()
+        result = []
+        for uid, data in subscriptions.items():
+            result.append({
+                'uid': uid,
+                'expiry': data['expiry'],
+                'note': data.get('note', '')
+            })
+        return jsonify(result)
+    except Exception as e:
+        print(f"ERROR: get_subscriptions error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/subscription', methods=['POST'])
+def add_subscription():
+    try:
+        data = request.get_json()
+        uid = str(data['uid'])
+        days = int(data['days'])
+        note = data.get('note', '')
+        
+        subscriptions = load_subscriptions()
+        
+        expiry = datetime.now() + timedelta(days=days)
+        
+        subscriptions[uid] = {
+            'expiry': expiry.isoformat(),
+            'note': note
+        }
+        
+        save_subscriptions(subscriptions)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"ERROR: add_subscription error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/subscription/add', methods=['POST'])
+def add_days():
+    try:
+        data = request.get_json()
+        uid = str(data['uid'])
+        add_days = int(data['add'])
+        
+        subscriptions = load_subscriptions()
+        
+        if uid not in subscriptions:
+            return jsonify({'error': 'User not found'}), 404
+            
+        current_expiry = datetime.fromisoformat(subscriptions[uid]['expiry'])
+        new_expiry = current_expiry + timedelta(days=add_days)
+        subscriptions[uid]['expiry'] = new_expiry.isoformat()
+        
+        save_subscriptions(subscriptions)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"ERROR: add_days error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/subscription/reset', methods=['POST'])
+def reset_subscription():
+    try:
+        data = request.get_json()
+        uid = str(data['uid'])
+        
+        subscriptions = load_subscriptions()
+        
+        if uid not in subscriptions:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Set expiry to current time to make it expired
+        subscriptions[uid]['expiry'] = datetime.now().isoformat()
+        
+        save_subscriptions(subscriptions)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"ERROR: reset_subscription error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/subscription/delete', methods=['POST'])
+def delete_subscription():
+    try:
+        data = request.get_json()
+        uid = str(data['uid'])
+        
+        subscriptions = load_subscriptions()
+        
+        if uid in subscriptions:
+            del subscriptions[uid]
+            save_subscriptions(subscriptions)
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': 'User not found'}), 404
+    except Exception as e:
+        print(f"ERROR: delete_subscription error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/subscription/note', methods=['POST'])
+def update_note():
+    try:
+        data = request.get_json()
+        uid = str(data['uid'])
+        note = data['note']
+        
+        subscriptions = load_subscriptions()
+        
+        if uid not in subscriptions:
+            return jsonify({'error': 'User not found'}), 404
+            
+        subscriptions[uid]['note'] = note
+        save_subscriptions(subscriptions)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"ERROR: update_note error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
     _setup_webhook()
