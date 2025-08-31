@@ -503,5 +503,9 @@ if __name__ == "__main__":
         init_db()
     else:
         print("DATABASE_URL not set or psycopg2 missing; skipping DB init")
+
+    # Webhook ni o'rnatish
+    _setup_webhook()
+    
     # Render.com: listen on PORT env
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
