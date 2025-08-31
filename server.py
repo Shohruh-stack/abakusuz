@@ -1,4 +1,3 @@
-
 import os
 import asyncio
 import traceback
@@ -30,7 +29,7 @@ def run_async_loop():
 thread = Thread(target=run_async_loop, daemon=True)
 thread.start()
 
-VERSION = 'srv-refactor-2' # Version updated
+VERSION = 'srv-refactor-3' # Version updated
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -51,6 +50,7 @@ def _setup_webhook():
             print(f"ERROR: Webhook setup error: {e}")
 
     asyncio.run_coroutine_threadsafe(set_hook(), loop)
+    setup_dispatcher(dp)  # Initialize all handlers after webhook setup
 
 @app.route('/tg/webhook', methods=['POST'])
 def webhook_handler():
@@ -70,11 +70,19 @@ def webhook_handler():
 
 @app.route('/')
 def index():
-    return send_from_directory('static', 'admin.html')
+    try:
+        return send_from_directory('static', 'admin.html')
+    except Exception as e:
+        print(f"ERROR: Failed to serve index.html: {e}")
+        return "Admin panel not available", 500
 
 @app.route('/<path:path>')
 def static_files(path):
-    return send_from_directory('static', path)
+    try:
+        return send_from_directory('static', path)
+    except Exception as e:
+        print(f"ERROR: Failed to serve static file {path}: {e}")
+        return "File not found", 404
 
 @app.route('/_version')
 def _version():
