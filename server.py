@@ -1,9 +1,15 @@
+
 import os
 import asyncio
 import traceback
 import json
+import sys
 from datetime import datetime, timedelta
 from threading import Thread
+
+# idna muammosini hal qilish
+if 'idna' not in sys.modules:
+    import encodings.idna
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
