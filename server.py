@@ -16,7 +16,7 @@ from aiogram import types
 
 from config import BOT_TOKEN, BASE_URL, ADMIN_ID
 # Import the bot and dispatcher from bot.py
-from bot import bot, dp, setup_dispatcher
+from bot import bot, dp, setup_dispatcher, load_subscriptions, save_subscriptions, is_subscribed
 
 # --- Background asyncio loop for aiogram ---
 loop = asyncio.new_event_loop()
@@ -29,7 +29,7 @@ def run_async_loop():
 thread = Thread(target=run_async_loop, daemon=True)
 thread.start()
 
-VERSION = 'srv-refactor-3' # Version updated
+VERSION = 'srv-refactor-4' # Version updated with timeout fixes
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -213,7 +213,11 @@ def update_note():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))  # Using higher port number for better accessibility
+    print(f"Starting server on port {port}")
     _setup_webhook()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    # Using waitress as production server when running directly
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=port)
 else: # When run by Gunicorn
     _setup_webhook()
