@@ -4,7 +4,7 @@ import hmac
 import json
 from datetime import datetime, timedelta
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, session, redirect
 from flask_cors import CORS
 # Optional DB import: allow running without Postgres client
 try:
@@ -39,13 +39,13 @@ def run_async(coro):
 def _setup_webhook():
     try:
         if not BOT_TOKEN or not BASE_URL:
-            print("BOT_TOKEN or BASE_URL not set; skipping webhook setup")
+            print("BOT_TOKEN yoki BASE_URL sozlanmagan")
             return
         tg = importlib.import_module('bot')
         run_async(tg.bot.set_webhook(BASE_URL.rstrip('/') + '/tg/webhook'))
-        print('Webhook set')
+        print('Webhook muvaffaqiyatli o\'rnatildi')
     except Exception as e:
-        print('Webhook setup error:', e)
+        print('Webhook xatosi:', e)
 
 # @app.before_first_request dekoratori Flask 2.3+ versiyalarida olib tashlangan.
 # Uning o'rniga server ishga tushganda bajariladigan funksiyalarni to'g'ridan-to'g'ri
@@ -260,13 +260,12 @@ def auth():
 @app.route('/tg/webhook', methods=['POST'])
 def tg_webhook():
     try:
-        from aiogram import types
-        tg = importlib.import_module('bot')
-        update = types.Update.model_validate_json(request.get_data(as_text=True))
-        run_async(tg.dp.feed_update(tg.bot, update))
+        update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
+        asyncio.run(dp.feed_update(bot=bot, update=update))
+        return 'OK'
     except Exception as e:
-        print('Webhook processing error:', e)
-    return 'OK'
+        print('Webhook qayta ishlashda xatolik:', e)
+        return 'Error', 500
 
 @app.route("/")
 def index():
