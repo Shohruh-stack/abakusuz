@@ -14,6 +14,7 @@ if 'idna' not in sys.modules:
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from aiogram import types
+from aiogram.client.session.aiohttp import AiohttpSession
 
 from config import BOT_TOKEN, BASE_URL, ADMIN_ID
 # Import the bot and dispatcher from bot.py
@@ -25,6 +26,16 @@ logger = logging.getLogger(__name__)
 
 # --- Background asyncio loop for aiogram ---
 loop = asyncio.new_event_loop()
+session = AiohttpSession()
+
+# Yangi bot obyekti yaratish
+bot = None
+if BOT_TOKEN:
+    bot = types.Bot(token=BOT_TOKEN, session=session)
+else:
+    logger.error("BOT_TOKEN is not set!")
+
+dp = Dispatcher()
 
 def run_async_loop():
     asyncio.set_event_loop(loop)
@@ -36,14 +47,14 @@ def run_async_loop():
 thread = Thread(target=run_async_loop, daemon=True)
 thread.start()
 
-VERSION = 'srv-refactor-6' # Version updated
+VERSION = 'srv-refactor-7' # Version updated
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 def _setup_webhook():
-    if not BOT_TOKEN or not BASE_URL:
-        logger.error("BOT_TOKEN or BASE_URL not set; skipping webhook setup")
+    if not bot or not BASE_URL:
+        logger.error("Bot or BASE_URL not set; skipping webhook setup")
         return
 
     webhook_url = BASE_URL.rstrip('/') + '/tg/webhook'
@@ -61,6 +72,10 @@ def _setup_webhook():
 
 @app.route('/tg/webhook', methods=['POST'])
 def webhook_handler():
+    if not bot:
+        logger.error("Bot is not initialized")
+        return 'Bot not initialized', 500
+        
     try:
         update_data = request.get_json(force=True)
         update = types.Update(**update_data)
