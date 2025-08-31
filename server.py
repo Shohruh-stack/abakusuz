@@ -23,16 +23,19 @@ STATIC_DIR = os.path.join(BASE_DIR, 'static')
 SUBS_JSON = os.path.join(BASE_DIR, 'subscriptions.json')
 VERSION = 'srv-json-fallback-3'
 
-# Event loop ni global o'zgaruvchi sifatida saqlash
+# Event loop va lock
+from threading import Lock
 loop = None
+loop_lock = Lock()
 
 def get_event_loop():
-    """Event loop ni olish yoki yaratish"""
+    """Thread-safe event loop olish"""
     global loop
-    if loop is None or loop.is_closed():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop
+    with loop_lock:
+        if loop is None or loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        return loop
 
 # Bot instance va webhook setup
 async def setup_webhook():
@@ -45,27 +48,33 @@ async def setup_webhook():
     except Exception as e:
         print('Webhook o\'rnatishda xatolik:', e)
 
+@app.route('/tg/webhook', methods=['POST'])
+def tg_webhook():
+    """Webhook handler"""
+    try:
+        update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
+        
+        # Thread-safe event loop olish
+        with loop_lock:
+            loop = get_event_loop()
+            # Update ni sinxron qayta ishlash
+            loop.run_until_complete(dp.feed_update(bot=bot, update=update))
+        
+        return 'OK'
+    except Exception as e:
+        print('Webhook qayta ishlashda xatolik:', e)
+        return 'Error', 500
+
 def init_webhook():
     """Webhook ni sinxron ravishda o'rnatish"""
-    loop = get_event_loop()
-    loop.run_until_complete(setup_webhook())
+    with loop_lock:
+        loop = get_event_loop()
+        loop.run_until_complete(setup_webhook())
 
 # Flask app setup
 app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = FLASK_SECRET
 CORS(app)
-
-# Webhook handler
-@app.route('/tg/webhook', methods=['POST'])
-def tg_webhook():
-    try:
-        update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
-        loop = get_event_loop()
-        loop.run_until_complete(dp.feed_update(bot=bot, update=update))
-        return 'OK'
-    except Exception as e:
-        print('Webhook qayta ishlashda xatolik:', e)
-        return 'Error', 500
 
 # Server ishga tushganda webhook ni o'rnatish
 if os.environ.get('RENDER'):
