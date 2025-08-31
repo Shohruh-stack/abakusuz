@@ -3,26 +3,19 @@ import json
 import os
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart
 from aiogram.types import Message
-from config import BOT_TOKEN, ADMIN_ID, CARD_NUMBER, CARD_NAME
 
 # Loggingni sozlash
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Bot va dispatcher obyektlarini yaratish
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
-
 # Test handler - bu har doim ishlashi kerak
-@dp.message(CommandStart())
 async def start_cmd(message: Message):
     logger.info(f"Received /start command from user {message.from_user.id}")
     await message.answer("Salom! Bot ishlayapti.")
 
 # Oddiy xabarlar uchun handler
-@dp.message()
 async def echo_handler(message: Message):
     logger.info(f"Received message from user {message.from_user.id}: {message.text}")
     await message.answer(f"Siz yubordingiz: {message.text}")
