@@ -3,8 +3,8 @@ import json
 import os
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import CommandStart
-from aiogram.types import FSInputFile
+from aiogram.filters import CommandStart, Command
+from aiogram.types import Message
 from config import BOT_TOKEN, ADMIN_ID, CARD_NUMBER, CARD_NAME
 
 # Loggingni sozlash
@@ -15,20 +15,30 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Obunachilarni saqlash fayli
-SUBSCRIPTIONS_FILE = os.path.join(os.path.dirname(__file__), 'subscriptions.json')
+# Test handler - bu har doim ishlashi kerak
+@dp.message(CommandStart())
+async def start_cmd(message: Message):
+    logger.info(f"Received /start command from user {message.from_user.id}")
+    await message.answer("Salom! Bot ishlayapti.")
 
+# Oddiy xabarlar uchun handler
+@dp.message()
+async def echo_handler(message: Message):
+    logger.info(f"Received message from user {message.from_user.id}: {message.text}")
+    await message.answer(f"Siz yubordingiz: {message.text}")
+
+# Qolgan barcha funksiyalar
 def load_subscriptions():
     """Obunachilarni JSON fayldan yuklash"""
     try:
-        with open(SUBSCRIPTIONS_FILE, 'r') as f:
+        with open('subscriptions.json', 'r') as f:
             return json.load(f)
     except FileNotFoundError:
         return {}
 
 def save_subscriptions(subscriptions):
     """Obunachilarni JSON faylga saqlash"""
-    with open(SUBSCRIPTIONS_FILE, 'w') as f:
+    with open('subscriptions.json', 'w') as f:
         json.dump(subscriptions, f, indent=2)
 
 def is_subscribed(user_id):
@@ -42,84 +52,9 @@ def is_subscribed(user_id):
         return datetime.now() < expiry
     return False
 
-# Handlerlarni ro'yxatdan o'tkazish funksiyasi
+# Handlerlarni ro'yxatdan o'tkazish funksiyasi (server.py uchun)
 def setup_dispatcher(dispatcher):
     """Bot uchun barcha handlerlarni ro'yxatdan o'tkazish"""
     logger.info("Setting up dispatcher with handlers")
     dispatcher.message.register(start_cmd, CommandStart())
-    dispatcher.message.register(handle_subscription, lambda message: message.text == "Obuna bo'lish")
-    dispatcher.message.register(check_subscription, lambda message: message.text == "Obunani tekshirish")
-
-# /start buyrug'i uchun handler
-@dp.message(CommandStart())
-async def start_cmd(message: types.Message):
-    logger.info(f"Received /start command from user {message.from_user.id}")
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    keyboard.add(types.KeyboardButton("Obuna bo'lish"))
-    keyboard.add(types.KeyboardButton("Obunani tekshirish"))
-    await message.answer("Assalomu alaykum! Obuna bo'lish uchun quyidagi tugmani bosing:", reply_markup=keyboard)
-
-# "Obuna bo'lish" tugmasi uchun handler
-@dp.message(lambda message: message.text == "Obuna bo'lish")
-async def handle_subscription(message: types.Message):
-    logger.info(f"User {message.from_user.id} requested subscription")
-    user_id = message.from_user.id
-    username = message.from_user.username or "Noma'lum"
-    
-    # To'lov ma'lumotlarini yuborish
-    payment_info = f"""Obuna bo'lish uchun quyidagi karta raqamiga to'lov qiling:
-
-Karta raqami: <code>{CARD_NUMBER}</code>
-Karta egasi: <code>{CARD_NAME}</code>
-
-To'lovni amalga oshirgandan so'ng, to'lov chekinining skrinshotini yuboring.
-
-To'lov summasi: 10,000 so'm/oy
-
-Foydalanuvchi ID: <code>{user_id}</code>
-Ism: {message.from_user.full_name}
-Username: @{username}
-"""
-    
-    await message.answer(payment_info, parse_mode='HTML')
-    
-    # Administratorga xabar berish
-    if ADMIN_ID:
-        admin_message = f"""Yangi to'lov so'rovi!
-
-Foydalanuvchi ID: {user_id}
-Ism: {message.from_user.full_name}
-Username: @{username}
-"""
-        try:
-            await bot.send_message(ADMIN_ID, admin_message)
-            logger.info(f"Notification sent to admin {ADMIN_ID}")
-        except Exception as e:
-            logger.error(f"Failed to send message to admin: {e}")
-    else:
-        logger.warning("ADMIN_ID not set, skipping admin notification")
-
-# "Obunani tekshirish" tugmasi uchun handler
-@dp.message(lambda message: message.text == "Obunani tekshirish")
-async def check_subscription(message: types.Message):
-    logger.info(f"User {message.from_user.id} checking subscription")
-    user_id = message.from_user.id
-    
-    if is_subscribed(user_id):
-        subscriptions = load_subscriptions()
-        expiry_str = subscriptions[str(user_id)]['expiry']
-        expiry = datetime.fromisoformat(expiry_str)
-        days_left = (expiry - datetime.now()).days
-        
-        await message.answer(f"Sizning obunangiz faol. {days_left} kun qolgan.")
-    else:
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        keyboard.add(types.KeyboardButton("Obuna bo'lish"))
-        await message.answer("Sizning obunangiz faol emas. Obuna bo'lish uchun quyidagi tugmani bosing:", reply_markup=keyboard)
-
-# Orqaga moslik uchun
-async def start_cmd_old(message: types.Message):
-    await start_cmd(message)
-
-async def handle_subscription_old(message: types.Message):
-    await handle_subscription(message)
+    dispatcher.message.register(echo_handler)
