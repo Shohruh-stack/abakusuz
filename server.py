@@ -23,6 +23,17 @@ STATIC_DIR = os.path.join(BASE_DIR, 'static')
 SUBS_JSON = os.path.join(BASE_DIR, 'subscriptions.json')
 VERSION = 'srv-json-fallback-3'
 
+# Event loop ni global o'zgaruvchi sifatida saqlash
+loop = None
+
+def get_event_loop():
+    """Event loop ni olish yoki yaratish"""
+    global loop
+    if loop is None or loop.is_closed():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop
+
 # Bot instance va webhook setup
 async def setup_webhook():
     """Bot va webhook ni sozlash"""
@@ -36,7 +47,8 @@ async def setup_webhook():
 
 def init_webhook():
     """Webhook ni sinxron ravishda o'rnatish"""
-    asyncio.run(setup_webhook())
+    loop = get_event_loop()
+    loop.run_until_complete(setup_webhook())
 
 # Flask app setup
 app = Flask(__name__, static_folder=STATIC_DIR)
@@ -48,7 +60,8 @@ CORS(app)
 def tg_webhook():
     try:
         update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
-        asyncio.run(dp.feed_update(bot=bot, update=update))
+        loop = get_event_loop()
+        loop.run_until_complete(dp.feed_update(bot=bot, update=update))
         return 'OK'
     except Exception as e:
         print('Webhook qayta ishlashda xatolik:', e)
