@@ -9,14 +9,15 @@ from config import BOT_TOKEN, ADMIN_ID, CARD_NUMBER, CARD_NAME
 
 logging.basicConfig(level=logging.INFO)
 
+# Bot va dispatcher obyektlarini yaratish
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Path to subscriptions file
+# Obunachilarni saqlash fayli
 SUBSCRIPTIONS_FILE = os.path.join(os.path.dirname(__file__), 'subscriptions.json')
 
 def load_subscriptions():
-    """Load subscriptions from JSON file"""
+    """Obunachilarni JSON fayldan yuklash"""
     try:
         with open(SUBSCRIPTIONS_FILE, 'r') as f:
             return json.load(f)
@@ -24,12 +25,12 @@ def load_subscriptions():
         return {}
 
 def save_subscriptions(subscriptions):
-    """Save subscriptions to JSON file"""
+    """Obunachilarni JSON faylga saqlash"""
     with open(SUBSCRIPTIONS_FILE, 'w') as f:
         json.dump(subscriptions, f, indent=2)
 
 def is_subscribed(user_id):
-    """Check if user is subscribed"""
+    """Foydalanuvchi obunachimi yoki yo'qligini tekshirish"""
     subscriptions = load_subscriptions()
     user_id_str = str(user_id)
     
@@ -39,12 +40,14 @@ def is_subscribed(user_id):
         return datetime.now() < expiry
     return False
 
+# Handlerlarni ro'yxatdan o'tkazish funksiyasi
 def setup_dispatcher(dispatcher):
-    """Setup all handlers for the bot"""
+    """Bot uchun barcha handlerlarni ro'yxatdan o'tkazish"""
     dispatcher.message.register(start_cmd, CommandStart())
     dispatcher.message.register(handle_subscription, lambda message: message.text == "Obuna bo'lish")
     dispatcher.message.register(check_subscription, lambda message: message.text == "Obunani tekshirish")
 
+# /start buyrug'i uchun handler
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
@@ -52,12 +55,13 @@ async def start_cmd(message: types.Message):
     keyboard.add(types.KeyboardButton("Obunani tekshirish"))
     await message.answer("Assalomu alaykum! Obuna bo'lish uchun quyidagi tugmani bosing:", reply_markup=keyboard)
 
+# "Obuna bo'lish" tugmasi uchun handler
 @dp.message(lambda message: message.text == "Obuna bo'lish")
 async def handle_subscription(message: types.Message):
     user_id = message.from_user.id
     username = message.from_user.username or "Noma'lum"
     
-    # Send payment information
+    # To'lov ma'lumotlarini yuborish
     payment_info = f"""Obuna bo'lish uchun quyidagi karta raqamiga to'lov qiling:
 
 Karta raqami: <code>{CARD_NUMBER}</code>
@@ -74,7 +78,7 @@ Username: @{username}
     
     await message.answer(payment_info, parse_mode='HTML')
     
-    # Notify admin
+    # Administratorga xabar berish
     admin_message = f"""Yangi to'lov so'rovi!
 
 Foydalanuvchi ID: {user_id}
@@ -84,6 +88,7 @@ Username: @{username}
     
     await bot.send_message(ADMIN_ID, admin_message)
 
+# "Obunani tekshirish" tugmasi uchun handler
 @dp.message(lambda message: message.text == "Obunani tekshirish")
 async def check_subscription(message: types.Message):
     user_id = message.from_user.id
@@ -100,7 +105,7 @@ async def check_subscription(message: types.Message):
         keyboard.add(types.KeyboardButton("Obuna bo'lish"))
         await message.answer("Sizning obunangiz faol emas. Obuna bo'lish uchun quyidagi tugmani bosing:", reply_markup=keyboard)
 
-# For backwards compatibility
+# Orqaga moslik uchun
 async def start_cmd_old(message: types.Message):
     await start_cmd(message)
 
