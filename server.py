@@ -27,17 +27,14 @@ app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = FLASK_SECRET
 CORS(app)
 
-# Webhook handler
-@app.route('/tg/webhook', methods=['POST'])
-def tg_webhook():
-    """Webhook handler - sync function"""
+def run_async(coro):
+    """Asynchronous code ni synchronous context da ishlatish uchun helper"""
     try:
-        update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
-        run_async(dp.feed_update(bot=bot, update=update))
-        return 'OK'
-    except Exception as e:
-        print('Webhook qayta ishlashda xatolik:', e)
-        return 'Error', 500
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(coro)
 
 async def setup():
     """Bot va webhook ni sozlash"""
@@ -55,18 +52,23 @@ def init_webhook():
     """Webhook ni sinxron ravishda o'rnatish"""
     run_async(setup())
 
+# Webhook handler
+@app.route('/tg/webhook', methods=['POST'])
+def tg_webhook():
+    """Webhook handler - sync function"""
+    try:
+        update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
+        run_async(dp.feed_update(bot=bot, update=update))
+        return 'OK'
+    except Exception as e:
+        print('Webhook qayta ishlashda xatolik:', e)
+        return 'Error', 500
+
 # Server ishga tushganda webhook ni o'rnatish
-init_webhook()
+if os.environ.get('RENDER'):
+    init_webhook()
 
 PORT = os.environ.get('PORT', 5000)
-
-def run_async(coro):
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 USE_DB = bool(DATABASE_URL) and (psycopg2 is not None)
