@@ -23,42 +23,32 @@ STATIC_DIR = os.path.join(BASE_DIR, 'static')
 SUBS_JSON = os.path.join(BASE_DIR, 'subscriptions.json')
 VERSION = 'srv-json-fallback-3'
 
-app = Flask(__name__, static_folder=STATIC_DIR)
-app.secret_key = FLASK_SECRET
-CORS(app)
-
-def run_async(coro):
-    """Asynchronous code ni synchronous context da ishlatish uchun helper"""
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
-
-async def setup():
+# Bot instance va webhook setup
+async def setup_webhook():
     """Bot va webhook ni sozlash"""
     try:
         webhook_url = f"{BASE_URL}/tg/webhook"
+        await bot.delete_webhook()  # Avvalgi webhookni o'chirish
         await bot.set_webhook(url=webhook_url)
         print(f"Webhook muvaffaqiyatli o'rnatildi: {webhook_url}")
     except Exception as e:
         print('Webhook o\'rnatishda xatolik:', e)
-    finally:
-        # Bot sessionini yopish
-        await bot.session.close()
 
 def init_webhook():
     """Webhook ni sinxron ravishda o'rnatish"""
-    run_async(setup())
+    asyncio.run(setup_webhook())
+
+# Flask app setup
+app = Flask(__name__, static_folder=STATIC_DIR)
+app.secret_key = FLASK_SECRET
+CORS(app)
 
 # Webhook handler
 @app.route('/tg/webhook', methods=['POST'])
 def tg_webhook():
-    """Webhook handler - sync function"""
     try:
         update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
-        run_async(dp.feed_update(bot=bot, update=update))
+        asyncio.run(dp.feed_update(bot=bot, update=update))
         return 'OK'
     except Exception as e:
         print('Webhook qayta ishlashda xatolik:', e)
@@ -507,4 +497,5 @@ def api_subscription_status():
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
+    init_webhook()  # Webhook ni o'rnatish
     app.run(host='0.0.0.0', port=port)
