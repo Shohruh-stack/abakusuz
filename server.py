@@ -3,6 +3,7 @@ import asyncio
 import traceback
 import json
 import sys
+import logging
 from datetime import datetime, timedelta
 from threading import Thread
 
@@ -16,20 +17,22 @@ from aiogram import types
 
 from config import BOT_TOKEN, BASE_URL, ADMIN_ID
 # Import the bot and dispatcher from bot.py
-from bot import bot, dp, setup_dispatcher, load_subscriptions, save_subscriptions, is_subscribed
+from bot import bot, dp, load_subscriptions, save_subscriptions, is_subscribed
+
+# Loggingni sozlash
+logging.basicConfig(level=logging.INFO)
 
 # --- Background asyncio loop for aiogram ---
 loop = asyncio.new_event_loop()
 
 def run_async_loop():
     asyncio.set_event_loop(loop)
-    setup_dispatcher(dp)  # Initialize all handlers
     loop.run_forever()
 
 thread = Thread(target=run_async_loop, daemon=True)
 thread.start()
 
-VERSION = 'srv-refactor-4' # Version updated with timeout fixes
+VERSION = 'srv-refactor-5' # Version updated
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -48,9 +51,6 @@ def _setup_webhook():
             print(f"INFO: Webhook set to {webhook_url}")
         except Exception as e:
             print(f"ERROR: Webhook setup error: {e}")
-
-    asyncio.run_coroutine_threadsafe(set_hook(), loop)
-    setup_dispatcher(dp)  # Initialize all handlers after webhook setup
 
 @app.route('/tg/webhook', methods=['POST'])
 def webhook_handler():
@@ -213,11 +213,9 @@ def update_note():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # Using higher port number for better accessibility
+    port = int(os.environ.get("PORT", 10000))  # Render.com uchun port
     print(f"Starting server on port {port}")
     _setup_webhook()
-    # Using waitress as production server when running directly
-    from waitress import serve
-    serve(app, host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)
 else: # When run by Gunicorn
     _setup_webhook()
