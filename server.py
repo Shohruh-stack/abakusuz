@@ -36,7 +36,7 @@ def run_async_loop():
 thread = Thread(target=run_async_loop, daemon=True)
 thread.start()
 
-VERSION = 'srv-refactor-5' # Version updated
+VERSION = 'srv-refactor-6' # Version updated
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -77,12 +77,13 @@ def webhook_handler():
         traceback.print_exc()
         return 'Internal Server Error', 500
 
+# Serve static files
 @app.route('/')
 def index():
     try:
         return send_from_directory('static', 'admin.html')
     except Exception as e:
-        print(f"ERROR: Failed to serve index.html: {e}")
+        logger.error(f"ERROR: Failed to serve index.html: {e}")
         return "Admin panel not available", 500
 
 @app.route('/<path:path>')
@@ -90,13 +91,8 @@ def static_files(path):
     try:
         return send_from_directory('static', path)
     except Exception as e:
-        print(f"ERROR: Failed to serve static file {path}: {e}")
+        logger.error(f"ERROR: Failed to serve static file {path}: {e}")
         return "File not found", 404
-
-@app.route('/_version')
-def _version():
-    return jsonify({'version': VERSION})
-
 
 # API endpoints for subscription management
 @app.route('/api/subscriptions')
@@ -112,7 +108,7 @@ def get_subscriptions():
             })
         return jsonify(result)
     except Exception as e:
-        print(f"ERROR: get_subscriptions error: {e}")
+        logger.error(f"ERROR: get_subscriptions error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/subscription', methods=['POST'])
@@ -136,7 +132,7 @@ def add_subscription():
         
         return jsonify({'success': True})
     except Exception as e:
-        print(f"ERROR: add_subscription error: {e}")
+        logger.error(f"ERROR: add_subscription error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/subscription/add', methods=['POST'])
@@ -159,7 +155,7 @@ def add_days():
         
         return jsonify({'success': True})
     except Exception as e:
-        print(f"ERROR: add_days error: {e}")
+        logger.error(f"ERROR: add_days error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/subscription/reset', methods=['POST'])
@@ -180,7 +176,7 @@ def reset_subscription():
         
         return jsonify({'success': True})
     except Exception as e:
-        print(f"ERROR: reset_subscription error: {e}")
+        logger.error(f"ERROR: reset_subscription error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/subscription/delete', methods=['POST'])
@@ -198,7 +194,7 @@ def delete_subscription():
         else:
             return jsonify({'error': 'User not found'}), 404
     except Exception as e:
-        print(f"ERROR: delete_subscription error: {e}")
+        logger.error(f"ERROR: delete_subscription error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/subscription/note', methods=['POST'])
@@ -218,9 +214,14 @@ def update_note():
         
         return jsonify({'success': True})
     except Exception as e:
-        print(f"ERROR: update_note error: {e}")
+        logger.error(f"ERROR: update_note error: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/_version')
+def _version():
+    return jsonify({'version': VERSION})
+
+# Asosiy funksiya - portni belgilash
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))  # Render.com uchun port
     logger.info(f"Starting server on port {port}")
