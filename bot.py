@@ -1,23 +1,28 @@
 import asyncio
 import logging
 import sys
-
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import BOT_TOKEN, ADMIN_ID, CARD_NUMBER, CARD_NAME, BASE_URL
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
 
-# DefaultBotProperties o'rniga to'g'ridan-to'g'ri parse_mode beramiz
-bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.MARKDOWN)
+# Initialize bot and dispatcher with lower timeout
+bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.MARKDOWN, timeout=10)
 dp = Dispatcher()
 
 
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
-    """Start komandasi handler"""
+    """Start command handler"""
     try:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📅 Obuna bo'lish", callback_data="subscribe")]
@@ -27,7 +32,7 @@ async def start_cmd(message: types.Message):
             reply_markup=kb
         )
     except Exception as e:
-        logging.error(f"Start handler xatolik: {e}")
+        logger.error(f"Start handler error: {e}", exc_info=True)
 
 
 @dp.callback_query(F.data == "subscribe")
@@ -83,20 +88,20 @@ async def receive_receipt(message: types.Message):
     ])
     await message.answer("✅ Chekingiz adminga yuborildi.", reply_markup=user_kb)
 
-async def main():
+async def setup_webhook():
+    """Setup webhook with error handling"""
     try:
-        # Webhook ni o'rnatish
         webhook_url = f"{BASE_URL}/tg/webhook"
-        await bot.delete_webhook()  # Avval eski webhook ni o'chiramiz
+        await bot.delete_webhook(drop_pending_updates=True)
         await bot.set_webhook(url=webhook_url)
-        print(f"Webhook muvaffaqiyatli o'rnatildi: {webhook_url}")
+        logger.info(f"Webhook set successfully: {webhook_url}")
+        return True
     except Exception as e:
-        print(f"Webhook o'rnatishda xatolik: {e}")
+        logger.error(f"Webhook setup error: {e}", exc_info=True)
+        return False
+
+async def main():
+    await setup_webhook()
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        stream=sys.stdout
-    )
     asyncio.run(main())
