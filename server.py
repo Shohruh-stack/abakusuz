@@ -506,6 +506,11 @@ def api_subscription_status():
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))
-    init_webhook()  # Webhook ni o'rnatish
-    app.run(host='0.0.0.0', port=port)
+    # Render.com uchun port
+    port = int(os.environ.get("PORT", 10000))
+    
+    # Webhook ni o'rnatish
+    init_webhook()
+    
+    # Serverni ishga tushirish
+    app.run(host="0.0.0.0", port=port)
