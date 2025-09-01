@@ -1,1 +1,1 @@
-web: gunicorn --worker-class=gevent --worker-connections=1000 --workers=1 --bind=0.0.0.0:$PORT server:app
+web: gunicorn server:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --worker-class gthread --timeout 120 --preload
