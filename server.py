@@ -1,30 +1,28 @@
 import os
-import hashlib
-import hmac
-import json
+import asyncio
+import logging
+from threading import Lock
 from datetime import datetime, timedelta
 
 from flask import Flask, request, jsonify, send_file, session, redirect
 from flask_cors import CORS
-# Optional DB import: allow running without Postgres client
-try:
-    import psycopg2
-    import psycopg2.extras
-except Exception:
-    psycopg2 = None
-import asyncio
 from aiogram import Bot, types, Dispatcher
 
 from config import BOT_TOKEN, FLASK_SECRET, BASE_URL
-from bot import bot, dp  # bot.py dan bot va dispatcher ni import qilamiz
+from bot import bot, dp
 
+# Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 SUBS_JSON = os.path.join(BASE_DIR, 'subscriptions.json')
 VERSION = 'srv-json-fallback-3'
 
-# Event loop va lock
-from threading import Lock
+# Flask app setup - eng yuqorida yaratilishi kerak
+app = Flask(__name__, static_folder=STATIC_DIR)
+app.secret_key = FLASK_SECRET
+CORS(app)
+
+# Event loop setup
 loop = None
 loop_lock = Lock()
 
@@ -37,12 +35,11 @@ def get_event_loop():
             asyncio.set_event_loop(loop)
         return loop
 
-# Bot instance va webhook setup
 async def setup_webhook():
     """Bot va webhook ni sozlash"""
     try:
         webhook_url = f"{BASE_URL}/tg/webhook"
-        await bot.delete_webhook()  # Avvalgi webhookni o'chirish
+        await bot.delete_webhook()
         await bot.set_webhook(url=webhook_url)
         print(f"Webhook muvaffaqiyatli o'rnatildi: {webhook_url}")
     except Exception as e:
@@ -53,13 +50,9 @@ def tg_webhook():
     """Webhook handler"""
     try:
         update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
-        
-        # Thread-safe event loop olish
         with loop_lock:
             loop = get_event_loop()
-            # Update ni sinxron qayta ishlash
             loop.run_until_complete(dp.feed_update(bot=bot, update=update))
-        
         return 'OK'
     except Exception as e:
         print('Webhook qayta ishlashda xatolik:', e)
@@ -70,11 +63,6 @@ def init_webhook():
     with loop_lock:
         loop = get_event_loop()
         loop.run_until_complete(setup_webhook())
-
-# Flask app setup
-app = Flask(__name__, static_folder=STATIC_DIR)
-app.secret_key = FLASK_SECRET
-CORS(app)
 
 # Server ishga tushganda webhook ni o'rnatish
 if os.environ.get('RENDER'):
