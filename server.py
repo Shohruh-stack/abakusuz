@@ -27,37 +27,41 @@ app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = FLASK_SECRET
 CORS(app)
 
-# Global event loop
+# Bot instance va webhook setup
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
+
+async def process_update(update: types.Update):
+    """Update ni qayta ishlash"""
+    try:
+        await dp.feed_update(bot=bot, update=update)
+    except Exception as e:
+        logging.error(f"Update qayta ishlashda xatolik: {e}")
 
 @app.route('/tg/webhook', methods=['POST'])
 def tg_webhook():
     """Webhook handler"""
     try:
         update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
-        # Yangi event loop yaratamiz
-        asyncio.set_event_loop(asyncio.new_event_loop())
-        # Update ni qayta ishlaymiz
-        asyncio.get_event_loop().run_until_complete(dp.feed_update(bot=bot, update=update))
+        loop.run_until_complete(process_update(update))
         return 'OK'
     except Exception as e:
-        print('Webhook qayta ishlashda xatolik:', e)
+        logging.error(f'Webhook qayta ishlashda xatolik: {e}')
         return 'Error', 500
 
 async def setup_webhook():
     """Bot va webhook ni sozlash"""
     try:
         webhook_url = f"{BASE_URL}/tg/webhook"
-        await bot.delete_webhook()
+        await bot.delete_webhook(drop_pending_updates=True)  # Eski updatelarni o'chiramiz
         await bot.set_webhook(url=webhook_url)
-        print(f"Webhook muvaffaqiyatli o'rnatildi: {webhook_url}")
+        logging.info(f"Webhook muvaffaqiyatli o'rnatildi: {webhook_url}")
     except Exception as e:
-        print('Webhook o\'rnatishda xatolik:', e)
+        logging.error(f'Webhook o\'rnatishda xatolik: {e}')
 
 def init_webhook():
     """Webhook ni sinxron ravishda o'rnatish"""
-    asyncio.get_event_loop().run_until_complete(setup_webhook())
+    loop.run_until_complete(setup_webhook())
 
 # Server ishga tushganda webhook ni o'rnatish
 if os.environ.get('RENDER'):
