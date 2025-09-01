@@ -3,6 +3,11 @@ import asyncio
 import logging
 from threading import Lock
 from datetime import datetime, timedelta
+import hmac
+import hashlib
+import json
+import psycopg2
+import psycopg2.extras
 
 from flask import Flask, request, jsonify, send_file, session, redirect
 from flask_cors import CORS
@@ -22,18 +27,23 @@ app = Flask(__name__, static_folder=STATIC_DIR)
 app.secret_key = FLASK_SECRET
 CORS(app)
 
-# Event loop setup
-loop = None
-loop_lock = Lock()
+# Global event loop
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 
-def get_event_loop():
-    """Thread-safe event loop olish"""
-    global loop
-    with loop_lock:
-        if loop is None or loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        return loop
+@app.route('/tg/webhook', methods=['POST'])
+def tg_webhook():
+    """Webhook handler"""
+    try:
+        update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
+        # Yangi event loop yaratamiz
+        asyncio.set_event_loop(asyncio.new_event_loop())
+        # Update ni qayta ishlaymiz
+        asyncio.get_event_loop().run_until_complete(dp.feed_update(bot=bot, update=update))
+        return 'OK'
+    except Exception as e:
+        print('Webhook qayta ishlashda xatolik:', e)
+        return 'Error', 500
 
 async def setup_webhook():
     """Bot va webhook ni sozlash"""
@@ -45,24 +55,9 @@ async def setup_webhook():
     except Exception as e:
         print('Webhook o\'rnatishda xatolik:', e)
 
-@app.route('/tg/webhook', methods=['POST'])
-def tg_webhook():
-    """Webhook handler"""
-    try:
-        update = types.Update.model_validate_json(request.get_data().decode('utf-8'))
-        with loop_lock:
-            loop = get_event_loop()
-            loop.run_until_complete(dp.feed_update(bot=bot, update=update))
-        return 'OK'
-    except Exception as e:
-        print('Webhook qayta ishlashda xatolik:', e)
-        return 'Error', 500
-
 def init_webhook():
     """Webhook ni sinxron ravishda o'rnatish"""
-    with loop_lock:
-        loop = get_event_loop()
-        loop.run_until_complete(setup_webhook())
+    asyncio.get_event_loop().run_until_complete(setup_webhook())
 
 # Server ishga tushganda webhook ni o'rnatish
 if os.environ.get('RENDER'):
@@ -506,11 +501,5 @@ def api_subscription_status():
 
 
 if __name__ == "__main__":
-    # Render.com uchun port
     port = int(os.environ.get("PORT", 10000))
-    
-    # Webhook ni o'rnatish
-    init_webhook()
-    
-    # Serverni ishga tushirish
     app.run(host="0.0.0.0", port=port)
