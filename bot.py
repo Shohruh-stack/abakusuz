@@ -17,10 +17,17 @@ dp = Dispatcher()
 
 @dp.message(CommandStart())
 async def start_cmd(message: types.Message):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📅 Obuna bo‘lish", callback_data="subscribe")]
-    ])
-    await message.answer("Assalomu alaykum!\nObuna bo‘lish uchun tugmani bosing 👇", reply_markup=kb)
+    """Start komandasi handler"""
+    try:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📅 Obuna bo'lish", callback_data="subscribe")]
+        ])
+        await message.answer(
+            "Assalomu alaykum!\nObuna bo'lish uchun tugmani bosing 👇", 
+            reply_markup=kb
+        )
+    except Exception as e:
+        logging.error(f"Start handler xatolik: {e}")
 
 
 @dp.callback_query(F.data == "subscribe")
